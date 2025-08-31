@@ -1,0 +1,96 @@
+name: LCG CI Pipeline
+
+on:
+  push:
+    branches: [ main, sqian_add_patch ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  lcg-madgraph-analysis:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Setup CVMFS
+      uses: cvmfs-contrib/github-action-cvmfs@v4
+
+    - name: Setup LCG environment and run MadGraph analysis
+      run: |
+        # Setup LCG_107 environment
+        source /cvmfs/sft.cern.ch/lcg/views/LCG_107/x86_64-centos9-gcc11-opt/setup.sh
+        
+        # Create working directory
+        mkdir -p madgraph_analysis
+        cd madgraph_analysis
+        
+        # Download and setup MadGraph5 v2.9.24
+        echo "Downloading MadGraph5 v2.9.24..."
+        wget -q https://launchpad.net/mg5amcnlo/2.0/2.9.x/+download/MG5_aMC_v2.9.24.tar.gz
+        tar -xzf MG5_aMC_v2.9.24.tar.gz
+        cd MG5_aMC_v2_9_24
+        
+        # Create process configuration with set commands
+        cat > process.mg5 << 'EOF'
+        import model sm
+        generate g g > t t~ > w+ w- b b~, w+ > l+ vl, w- > l- vl~
+        set ebeam1 2681
+        set ebeam2 2681
+        set hel_recycling False
+        output eta_production
+        done
+        EOF
+
+        # Run MadGraph to generate process
+        echo "Running MadGraph to generate process..."
+        ./bin/mg5_aMC process.mg5
+
+        # Navigate to the generated process directory
+        cd eta_production/SubProcesses/P1_gg_wpwmbbx_wp_lvl_wm_lvl
+
+        # Apply patches
+        echo "Applying patches..."
+        cp ../../../../driver.patch .
+        cp ../../../../matrix1_orig.patch .
+
+        # Apply driver patch
+        patch -p1 < driver.patch
+
+        # Apply matrix patch (navigate to appropriate directory)
+        cd ../../
+        patch -p1 < SubProcesses/P1_gg_wpwmbbx_wp_lvl_wm_lvl/matrix1_orig.patch
+        cd SubProcesses/P1_gg_wpwmbbx_wp_lvl_wm_lvl
+
+        # Copy swData files to correct location
+        echo "Copying swData files..."
+        cp ../../../../swData.M20.M5.txt .
+        cp ../../../../swData.M5.P20.txt .
+
+        # Return to process directory to launch
+        cd ../../..
+
+        # Launch the process with patches applied
+        echo "Launching process with patches applied..."
+        ../bin/mg5_aMC -f << 'EOF'
+        launch eta_production
+        done
+        EOF
+        
+        # Check results
+        echo "Analysis completed successfully!"
+        ls -la
+        
+        # Return to original directory
+        cd ../../../../
+
+    - name: Upload results
+      uses: actions/upload-artifact@v4
+      with:
+        name: madgraph-results
+        path: |
+          madgraph_analysis/MG5_aMC_v2_9_24/eta_production/SubProcesses/P1_gg_wpwmbbx_wp_lvl_wm_lvl/
+          !madgraph_analysis/MG5_aMC_v2_9_24/eta_production/SubProcesses/P1_gg_wpwmbbx_wp_lvl_wm_lvl/*.o
+          !madgraph_analysis/MG5_aMC_v2_9_24/eta_production/SubProcesses/P1_gg_wpwmbbx_wp_lvl_wm_lvl/*.a
+        retention-days: 30
