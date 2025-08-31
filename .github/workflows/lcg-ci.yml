@@ -20,7 +20,7 @@ jobs:
     - name: Setup LCG environment and run MadGraph analysis
       run: |
         # Setup LCG_107 environment
-        source /cvmfs/sft.cern.ch/lcg/views/LCG_107/x86_64-centos9-gcc11-opt/setup.sh
+        source /cvmfs/sft.cern.ch/lcg/views/LCG_107/x86_64-el9-gcc14-opt/setup.sh 
         
         # Create working directory
         mkdir -p madgraph_analysis
