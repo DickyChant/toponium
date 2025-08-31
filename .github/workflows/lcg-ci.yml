@@ -86,11 +86,15 @@ jobs:
         cd ../../../../
 
     - name: Upload results
+      run: |
+        # Create tar archive of the complete results
+        cd madgraph_analysis/MG5_aMC_v2_9_24
+        tar -czf eta_production_results.tar.gz eta_production/
+        mv eta_production_results.tar.gz ../../
+
+    - name: Upload results
       uses: actions/upload-artifact@v4
       with:
         name: madgraph-results
-        path: |
-          madgraph_analysis/MG5_aMC_v2_9_24/eta_production/SubProcesses/P1_gg_wpwmbbx_wp_lvl_wm_lvl/
-          !madgraph_analysis/MG5_aMC_v2_9_24/eta_production/SubProcesses/P1_gg_wpwmbbx_wp_lvl_wm_lvl/*.o
-          !madgraph_analysis/MG5_aMC_v2_9_24/eta_production/SubProcesses/P1_gg_wpwmbbx_wp_lvl_wm_lvl/*.a
+        path: eta_production_results.tar.gz
         retention-days: 30
