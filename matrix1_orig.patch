@@ -1,0 +1,207 @@
+diff --git a/eta_production_orig/SubProcesses/P1_gg_wpwmbbx_wp_lvl_wm_lvl/matrix1_orig.f b/eta_production/SubProcesses/P1_gg_wpwmbbx_wp_lvl_wm_lvl/matrix1_orig.f
+index 44569bd..063fc1e 100644
+--- a/eta_production_orig/SubProcesses/P1_gg_wpwmbbx_wp_lvl_wm_lvl/matrix1_orig.f
++++ b/eta_production/SubProcesses/P1_gg_wpwmbbx_wp_lvl_wm_lvl/matrix1_orig.f
+@@ -564,7 +564,12 @@ C     *   Decay: w- > e- ve~ WEIGHTED<=2
+ C     Process: g g > w+ w- b b~ WEIGHTED<=6 @1
+ C     *   Decay: w+ > mu+ vm WEIGHTED<=2
+ C     *   Decay: w- > mu- vm~ WEIGHTED<=2
+-C     
++C    
++C     BEGIN addition
++        USE GREENDATA
++C     END addition
++
++
+       IMPLICIT NONE
+ C     
+ C     CONSTANTS
+@@ -593,6 +598,15 @@ C
+       REAL*8 P(0:3,NEXTERNAL)
+       INTEGER NHEL(NEXTERNAL), IC(NEXTERNAL)
+       INTEGER IHEL
++
++C     BEGIN addition: toponium kinematics
++        REAL*8 PMOM(0:3, 3)
++        REAL*8 GXOM, GYOM, GZOM, GEOM
++        REAL*8 GMOM, GTHE, GPHI, GBET, GGAM, GMAS
++        REAL*8 EXXX, MXXX
++        COMPLEX*16 GREEN
++C     END addition
++
+ C     
+ C     LOCAL VARIABLES 
+ C     
+@@ -647,12 +661,25 @@ C     2 means approximation by the	denominator of the propagator
+ C     
+ C     COLOR DATA
+ C     
+-      DATA (CF(I,  1),I=  1,  2) /5.333333333333333D+00,
+-     $ -6.666666666666666D-01/
++C      DATA (CF(I,  1),I=  1,  2) /5.333333333333333D+00,
++C     $ -6.666666666666666D-01/
+ C     1 T(1,2,7,8)
+-      DATA (CF(I,  2),I=  1,  2) /-6.666666666666666D-01
+-     $ ,5.333333333333333D+00/
++C      DATA (CF(I,  2),I=  1,  2) /-6.666666666666666D-01
++C     $ ,5.333333333333333D+00/
+ C     1 T(2,1,7,8)
++
++C     COLOR DATA
++C     BEGIN modifications 
++      DATA (CF(I,1),I=1,2)/
++     $ 6.666666666666666D-01,
++     $ 6.666666666666666D-01/
++C     1 T(1,2,5,8)
++      DATA (CF(I,2),I=1,2)/
++     $ 6.666666666666666D-01,
++     $ 6.666666666666666D-01/
++C     1 T(2,1,5,8)
++C     END modifications 
++
+ C     ----------
+ C     BEGIN CODE
+ C     ----------
+@@ -813,6 +840,51 @@ C     JAMPs contributing to orders ALL_ORDERS=1
+         ENDDO
+       ENDIF
+ 
++
++C BEGIN addition
++      DO M = 0, 3
++         PMOM(M, 2) = 0
++         PMOM(M, 3) = 0
++         DO I = 3, 5
++            PMOM(M, 2) = PMOM(M, 2) + P(M, I)
++            PMOM(M, 3) = PMOM(M, 3) + P(M, I+3)
++         ENDDO
++         PMOM(M, 1) = PMOM(M, 2) + PMOM(M, 3)
++      ENDDO
++C     Lorentz transformation factors
++      GMOM = SQRT(PMOM(1,1)**2 + PMOM(2,1)**2 +
++     $ PMOM(3,1)**2)
++      GMAS = SQRT(PMOM(0,1)**2 - GMOM**2)
++      GTHE = DACOS(PMOM(3,1)/(GMOM+1.e-8))
++      GPHI = ATAN2(PMOM(2,1), PMOM(1,1))
++      GBET = GMOM/PMOM(0,1)
++      GGAM = PMOM(0,1)/GMAS
++C     Rotating around Z-axis
++      DO M=1,3
++        GXOM = PMOM(1,M)
++        GYOM = PMOM(2,M)
++        PMOM(1,M)=COS(GPHI)*GXOM+SIN(GPHI)*GYOM
++        PMOM(2,M)=COS(GPHI)*GYOM-SIN(GPHI)*GXOM
++      ENDDO
++C     
++C     Rotating around Y-axis
++      DO M=1,3
++        GXOM = PMOM(1,M)
++        GZOM = PMOM(3,M)
++        PMOM(1,M)=COS(GTHE)*GXOM-SIN(GTHE)*GZOM
++        PMOM(3,M)=COS(GTHE)*GZOM+SIN(GTHE)*GXOM
++      ENDDO
++C     
++C     Boost along Z-axis
++      DO M=1,3
++        GEOM = PMOM(0,M)
++        GZOM = PMOM(3,M)
++        PMOM(0,M)=GGAM*GEOM-GGAM*GBET*GZOM
++        PMOM(3,M)=GGAM*GZOM-GGAM*GBET*GEOM
++      ENDDO
++
++C END addition 
++
+       MATRIX1 = 0.D0
+       DO M = 1, NAMPSO
+         DO I = 1, NCOLOR
+@@ -828,6 +900,23 @@ C     JAMPs contributing to orders ALL_ORDERS=1
+         ENDDO
+       ENDDO
+ 
++C BEGIN addition
++C     Inclusion of the Green`s function
++      EXXX = PMOM(0, 1) - 2.0 * 173.D0
++      MXXX = SQRT(PMOM(1,2)**2 + PMOM(2,2)**2
++     $ + PMOM(3,2)**2)
++
++      CALL CALCGREEN(EXXX,MXXX,GREEN,EDATA,
++     $ PDATA,GRATA,GIATA,EEATA,PPATA,GGRTA,
++     $ GGITA)
++
++      IF(GMAS.LE.350.D0 .AND. MXXX.LE.50.D0) THEN
++        MATRIX1 = GREEN*DCONJG(GREEN)*MATRIX1
++      ELSE
++        MATRIX1 = MATRIX1*1.0D-16
++      ENDIF
++C END addition      
++
+       IF(SDE_STRAT.EQ.1)THEN
+         AMP2(1)=AMP2(1)+AMP(1)*DCONJG(AMP(1))
+         AMP2(2)=AMP2(2)+AMP(2)*DCONJG(AMP(2))
+@@ -1137,4 +1226,66 @@ C
+       STOP
+ 
+       END
++      SUBROUTINE CALCGREEN(EOMX,MOMX,GREEN,
++     $ EDATA,PDATA,GRATA,GIATA,EEATASG,PPATASG,
++     $ GGRTASG,GGITASG)
+ 
++      COMPLEX*16 GREEN, IMAG1, ZREEN, NREEN
++      PARAMETER (IMAG1=(0D0,1D0))
++
++      INTEGER NMOM, NEOM, NMMM, NEEM, II, JJ
++      PARAMETER (NMOM=400, NEOM=151, NMMM=400,
++     $ NEEM=1251)
++      REAL*8 DEOM,DEEM, DMOM,DMMM, EMIN,EMID,
++     $ EMAX, MMAX, OREEN
++      PARAMETER (DEOM=0.1,DEEM=0.02,DMOM=0.25,
++     $ DMMM=0.25,EMIN=-20.,EMID=-5.,EMAX=20.,
++     $ MMAX=100.)
++      REAL*8,dimension(NEOM,NMOM)::EDATA,PDATA
++      REAL*8,dimension(NEOM,NMOM)::GRATA,GIATA
++      REAL*8,dimension(NEEM,NMMM)::EEATASG,
++     $ PPATASG
++      REAL*8,dimension(NEEM,NMMM) :: GGRTASG, 
++     $ GGITASG
++
++      REAL*8 EOMX, MOMX, AA, BB, RGR, IGR
++
++      IF( EOMX .GT. EMIN .and. EOMX .LT. EMAX .and. MOMX .LT. 80 ) THEN
++        ZREEN = (EOMX-MOMX**2./173.+IMAG1*1.49)
++        IF(EOMX .LE. EMID) THEN
++          II = (EOMX - EMIN)/DEOM
++          IF(II .LT. 1) II = 1
++          JJ = MOMX/DMOM
++            IF(JJ .LT. 1) JJ = 1
++            AA = (EOMX - EDATA(II,1))/DEOM
++            BB = (MOMX - PDATA(1,JJ))/DMOM
++            RGR = (1.-AA)*(1.-BB)*GRATA(II,JJ)+
++     $          AA*(1.-BB)*GRATA(II+1,JJ)
++          RGR = RGR+(1.-AA)*BB*GRATA(II,JJ+1)+
++     $          AA*BB*GRATA(II+1,JJ+1)
++          IGR = (1.-AA)*(1.-BB)*GIATA(II,JJ)+
++     $          AA*(1.-BB)*GIATA(II+1,JJ)
++          IGR = IGR+(1.-AA)*BB*GIATA(II,JJ+1)+
++     $          AA*BB*GIATA(II+1,JJ+1)
++          GREEN = (RGR + IMAG1 * IGR)*ZREEN
++        ELSE
++          II = (EOMX - EMID)/DEEM
++          IF(II .LT. 1) II = 1
++          JJ = MOMX/DMMM
++          IF(JJ .LT. 1) JJ = 1
++          AA = (EOMX - EEATASG(II,1))/DEEM
++          BB = (MOMX - PPATASG(1,JJ))/DMMM
++          RGR=(1.-AA)*(1.-BB)*GGRTASG(II,JJ)+
++     $         AA*(1.-BB)*GGRTASG(II+1,JJ)
++          RGR=RGR+(1.-AA)*BB*GGRTASG(II,JJ+1)+
++     $         AA*BB*GGRTASG(II+1,JJ+1)
++          IGR=(1.-AA)*(1.-BB)*GGITASG(II,JJ)+
++     $         AA*(1.-BB)*GGITASG(II+1,JJ)
++          IGR=IGR+(1.-AA)*BB*GGITASG(II,JJ+1)+
++     $         AA*BB*GGITASG(II+1,JJ+1)
++          GREEN = (RGR + IMAG1 * IGR)*ZREEN
++        ENDIF
++      ELSE
++        GREEN = (1., 0.)
++      ENDIF
++      END

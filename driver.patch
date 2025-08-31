@@ -1,0 +1,56 @@
+diff --git a/eta_production_orig/SubProcesses/P1_gg_wpwmbbx_wp_lvl_wm_lvl/driver.f b/eta_production/SubProcesses/P1_gg_wpwmbbx_wp_lvl_wm_lvl/driver.f
+index 644d391..fc3dc16 100644
+--- a/eta_production_orig/SubProcesses/P1_gg_wpwmbbx_wp_lvl_wm_lvl/driver.f
++++ b/eta_production/SubProcesses/P1_gg_wpwmbbx_wp_lvl_wm_lvl/driver.f
+@@ -1,7 +1,28 @@
++      module GREENDATA
++      implicit none
++
++C     Constants for the Green functions
++      INTEGER NMOM,NEOM, NEEM,NMMM, IGRN,JGRN
++      PARAMETER (NMOM=400, NEOM=151, NMMM=400, 
++     $ NEEM=1251)    
++      REAL*8,dimension(NEOM,NMOM)::EDATA,PDATA
++      REAL*8,dimension(NEOM,NMOM)::GRATA,GIATA
++      REAL*8,dimension(NEEM,NMMM)::EEATA,PPATA
++      REAL*8,dimension(NEEM,NMMM)::GGRTA,GGITA
++      COMMON EDATA, PDATA, GRATA, GIATA
++      COMMON EEATA, PPATA, GGITA, GGRTA
++
++      end module
++
+       Program DRIVER
+ c**************************************************************************
+ c     This is the driver for the whole calulation
+ c**************************************************************************
++      
++C BEGIN addition
++      USE GREENDATA
++C END addition      
++      
+       implicit none
+ C
+ C     CONSTANTS
+@@ -76,6 +97,22 @@ c      common/to_colstats/ncols,ncolflow,ncolalt,ic
+ C-----
+ C  BEGIN CODE
+ C----- 
++
++
++C BEGIN addition
++      open(unit=99,file="../swData.M20.M5.txt")
++      read(99,*) ((EDATA(IGRN,JGRN), 
++     $  PDATA(IGRN,JGRN), GRATA(IGRN,JGRN),
++     $  GIATA(IGRN,JGRN), JGRN=1, NMOM, 1),
++     $  IGRN=1, NEOM, 1)
++      open(unit=98,file="../swData.M5.P20.txt")
++      read(98,*) ((EEATA(IGRN,JGRN), 
++     $  PPATA(IGRN,JGRN), GGRTA(IGRN,JGRN),
++     $  GGITA(IGRN,JGRN), JGRN=1, NMMM, 1),
++     $  IGRN=1, NEEM, 1)
++C END addition
++
++
+       call cpu_time(t_before)
+       CUMULATED_TIMING = t_before
+ c
