@@ -10,7 +10,7 @@ jobs:
   lcg-madgraph-analysis:
     runs-on: ubuntu-latest
     container:
-      image: cms-sw/cmssw:el9
+      image: cmssw/el9:x86_64
     
     steps:
     - name: Checkout repository
