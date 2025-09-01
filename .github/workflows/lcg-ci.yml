@@ -9,6 +9,7 @@ on:
 jobs:
   lcg-madgraph-analysis:
     runs-on: ubuntu-latest
+    container: almalinux9:latest
     
     steps:
     - name: Checkout repository
